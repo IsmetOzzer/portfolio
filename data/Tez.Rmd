@@ -1,0 +1,1051 @@
+---
+title: "Ismet Tez"
+author: "Ismet Ozer"
+date: "26 07 2021"
+runtime: shiny
+output:
+  html_document: 
+    code_folding: hide
+    toc: true
+    toc_float: true
+  pdf_document: 
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 5
+---
+
+```{r message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, comment = NA)
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+```
+
+
+```{r message=FALSE, warning=FALSE}
+
+library(flextable)
+library(report)
+library(reactable)
+library(skimr)
+library(dlookr)
+library(performance)
+library(see)
+library(car)
+library(dplyr)
+library(tidyr)
+library(pastecs)
+library(broom)
+library(ggplot2)
+library(ggfortify)
+library(plotly)
+library(ggpubr)
+library(GGally)
+library(performance)
+library(modelbased)
+library(DataExplorer)
+```
+
+# Loading and handling data
+
+```{r}
+tez <- read.csv("../data/finalData.csv", sep = ";")
+
+tez <- tez %>% dplyr::rename(IGT = NET,
+                             IGT_1 = NET1,
+                             IGT_2 = NET2,
+                             IGT_3 = NET3,
+                             IGT_4 = NET4,
+                             IGT_5 = NET5,
+                             BART = adjustedaveragepumpcount,
+                             BART_1 = adjustedaveragepumpcount_10,
+                             BART_2 = adjustedaveragepumpcount_20,
+                             BART_3 = adjustedaveragepumpcount_30)
+
+# Barratt Impulsiveness Scale
+## Barratt reversing items
+bar_rev_cols <- c("barratt_1", "barratt_5","barratt_6","barratt_11","barratt_15")
+
+tez[, bar_rev_cols] <- 5 - tez[, bar_rev_cols]
+
+tez[, bar_rev_cols] <- lapply(tez[, bar_rev_cols], as.integer)
+
+## Total and subscales of Barratt scores
+tez <- tez %>% mutate(barratt_total = rowSums(select(., c(barratt_1:barratt_15))),
+                      barratt_atten = rowSums(select(., c(barratt_1, barratt_5, barratt_6, barratt_11, barratt_15))),
+                      barratt_motor = rowSums(select(., c(barratt_4, barratt_10, barratt_12, barratt_13, barratt_14))),
+                      barratt_atten = rowSums(select(., c(barratt_2, barratt_3, barratt_7, barratt_8, barratt_9))))
+
+# Sensation Seeking Scale
+## Total SSS
+tez <- tez %>% mutate(sss_total = rowSums(select(., c(sss_1:sss_8))))
+
+# Ok-Religious Attitudes
+## Ok-Religious Attitudes reversing items
+ok_rev_cols <- c("ok_religious_attitudes_1", "ok_religious_attitudes_2")
+
+tez[, ok_rev_cols] <- 6 - tez[, ok_rev_cols]
+
+tez[, ok_rev_cols] <- lapply(tez[, ok_rev_cols], as.integer)
+
+## Total and subscales of Ok-Religious Attitudes Scale
+tez <- tez %>% mutate(okRelig_total = rowSums(select(., c(ok_religious_attitudes_1:ok_religious_attitudes_8))),
+                      okRelig_cog = rowSums(select(., c(ok_religious_attitudes_1,ok_religious_attitudes_2))),
+                      okRelig_feel = rowSums(select(., c(ok_religious_attitudes_3,ok_religious_attitudes_4))),
+                      okRelig_behav = rowSums(select(., c(ok_religious_attitudes_5,ok_religious_attitudes_6))),
+                      okRelig_rel2god = rowSums(select(., c(ok_religious_attitudes_7,ok_religious_attitudes_8))))
+
+# Intuitive Religion Scale
+## reversing items
+int_rev_cols <- c("intuitive_religion_3", "intuitive_religion_4", "intuitive_religion_5")
+
+tez[, int_rev_cols] <- 6 - tez[, int_rev_cols]
+
+tez[, int_rev_cols] <- lapply(tez[, int_rev_cols], as.integer)
+
+## Total Intuitive Religion Scale score
+tez <- tez %>% mutate(intuRelig_total = rowSums(select(., c(intuitive_religion_1:intuitive_religion_5))))
+
+#Removing variables
+tez <- tez %>% select(-barratt_1:-barratt_15,
+                      -sss_1:-sss_8,
+                      -religion,
+                      -ok_religious_attitudes_1: -ok_religious_attitudes_8,
+                      -intuitive_religion_1:-intuitive_religion_5)
+
+tez$education <- ifelse(tez$bau_student == 1, 2, tez$education)
+
+# Correcting data types
+tez$bau_student <- factor(tez$bau_student, labels = c("Student", "Not Student"))
+tez$group <- factor(tez$group, labels = c("Punishing", "Rewarding", "Control"))
+tez$sex <- factor(tez$sex, labels = c("Female", "Male"))
+tez$education <- factor(tez$education, labels = c("Graduate", "Undergraduate", "Associate", "Highschool"))
+tez$dominant_hand <- factor(tez$dominant_hand, labels = c("Left", "Right"))
+tez$place <- factor(tez$place, levels = c(1:5), labels = c("Metropolis", "City",	"Town", "Borough", "Village"))
+tez$income <- factor(tez$income, levels = c(1:5), labels = c("Very well", "Good", "Not bad", "Bad", "Very bad"))
+tez$IGT_awareness_2 <- factor(tez$IGT_awareness_2, labels = c("Yes", "No"))
+tez$IGT_awareness_3_A <- factor(tez$IGT_awareness_3_A, labels = c("Win", "Lose"))
+tez$IGT_awareness_4_B <- factor(tez$IGT_awareness_4_B, labels = c("Win", "Lose"))
+tez$IGT_awareness_5_C <- factor(tez$IGT_awareness_5_C, labels = c("Win", "Lose"))
+tez$IGT_awareness_6_D <- factor(tez$IGT_awareness_6_D, labels = c("Win", "Lose"))
+tez$IGT_awareness_7 <- factor(tez$IGT_awareness_7, labels = c("1. Deck", "2. Deck", "3. Deck", "4. Deck"))
+
+tez$barratt_code <- if (tez$barratt_total <= mean(tez$barratt_total)- sd(tez$barratt_total)) {
+  tez$barratt_code = 1
+} else if (tez$barratt_total >= mean(tez$barratt_total) + sd(tez$barratt_total)) {
+  tez$barratt_code = 3
+} else {
+  tez$barratt_code = 2
+}
+
+# Group coding for barratt_total
+## 1 for values < mean - sd, 2 for mean - sd < values < mean + sd, 3 for values > mean + sd
+tez$barratt_code <- ifelse(
+  (tez$barratt_total <= mean(tez$barratt_total) - sd(tez$barratt_total)), 1,
+  ifelse(
+    (tez$barratt_total >= mean(tez$barratt_total) + sd(tez$barratt_total)), 3, 2
+    )
+  )
+
+tez$barratt_code <- factor(tez$barratt_code, 
+                           levels = c(1:3),
+                           labels = c("Low", "Medium", "High"),
+                           ordered = T)
+
+# Group coding for sss_total
+## 1 for values < mean - sd, 2 for mean - sd < values < mean + sd, 3 for values > mean + sd
+tez$sss_code <- ifelse(
+  (tez$sss_total <= mean(tez$sss_total) - sd(tez$sss_total)), 1,
+  ifelse(
+    (tez$sss_total >= mean(tez$sss_total) + sd(tez$sss_total)), 3, 2
+    )
+  )
+
+tez$sss_code <- factor(tez$sss_code, 
+                           levels = c(1:3),
+                           labels = c("Low", "Medium", "High"),
+                           ordered = T)
+
+# Group coding for okRelig_total
+## 1 for values < mean - sd, 2 for mean - sd < values < mean + sd, 3 for values > mean + sd
+tez$okRelig_code <- ifelse(
+  (tez$okRelig_total <= mean(tez$okRelig_total) - sd(tez$okRelig_total)), 1,
+  ifelse(
+    (tez$okRelig_total >= mean(tez$okRelig_total) + sd(tez$okRelig_total)), 3, 2
+    )
+  )
+
+tez$okRelig_code <- factor(tez$okRelig_code, 
+                           levels = c(1:3),
+                           labels = c("Low", "Medium", "High"),
+                           ordered = T)
+
+
+# Group coding for intuRelig_total
+## Replacing NA values with group means
+
+tez <- tez %>% 
+  dplyr::group_by(group) %>% 
+  mutate_at(vars(intuRelig_total),  funs(replace(., which(is.na(.)),
+                                round(mean(., na.rm=TRUE)))))  
+
+## 1 for values < mean - sd, 2 for mean - sd < values < mean + sd, 3 for values > mean + sd
+tez$intuRelig_code <- ifelse(
+  (tez$intuRelig_total <= mean(tez$intuRelig_total) - sd(tez$intuRelig_total)), 1,
+  ifelse(
+    (tez$intuRelig_total >= mean(tez$intuRelig_total) + sd(tez$intuRelig_total)), 3, 2
+    )
+  )
+
+tez$intuRelig_code <- factor(tez$intuRelig_code, 
+                             levels = c(1:3),
+                             labels = c("Low", "Medium", "High"),
+                             ordered = T)
+
+
+# Group coding for BART awareness 
+## 1 for values < 16, 2 for 15 < values < 31, 3 for values > 30
+tez$BART_awareness_code <- ifelse(
+  (tez$BART_awareness_1 <= 16), 1,
+  ifelse(
+    (tez$BART_awareness_1 >= 16 & tez$BART_awareness_1 <= 31), 2, 3
+    )
+)
+
+tez$BART_awareness_code <- factor(tez$BART_awareness_1, 
+                             levels = c(1:3),
+                             labels = c("0-15", "15-30", ">30"),
+                             ordered = T)
+
+
+
+# Inserting ID numbers
+
+tez <- tez %>% ungroup() %>% dplyr::mutate(id = row_number())
+tez <- tez %>% dplyr::relocate(id, .before = bau_student)
+
+# Removing unrelated columns
+
+tez <- tez %>%
+  select(-totalearnings:-adjustedtotalpumpcount_30,
+         -currenttotal:-countDisAdvantage_total,
+         -countAdvantage1,-countAdvantage2, -countAdvantage3,
+         -countAdvantage4,-countAdvantage5,-countDisAdvantage1,
+         -countDisAdvantage2, -countDisAdvantage3,
+         -countDisAdvantage4, -countDisAdvantage5, -countDisAdvantage_total, -BART_awareness_code, 
+         -IGT_awareness_1:-IGT_awareness_7,
+         -deckOrderGroup, -email
+         )
+
+# Renaming columns
+
+tez <- tez %>% dplyr::rename(
+  subjective_religiosity_rating = religion_rating,
+  condifence_in_gods_existance = god_exists_rating,
+  impulsivity = barratt_total,
+  attentional_impulsivity = barratt_atten,
+  motor_impulsivity = barratt_motor,
+  sensation_seeking = sss_total,
+  religiosity = okRelig_total,
+  cognitive_religiosity = okRelig_cog,
+  emotional_religiosity = okRelig_feel,
+  behavioral_religiosity = okRelig_behav,
+  relation_to_god_religiosity = okRelig_rel2god,
+  intuitive_religiosity = intuRelig_total
+)
+
+
+tez <- tez %>% dplyr::select(-contains("BART"))
+
+```
+
+
+# Data Exploration
+
+Variables that end with "_code" are arbitrarily coded as: 
+
+* Low is smaller than mean - sd
+* High is bigger than mean + sd
+* Medium is between low and high
+
+## Introducing Data {.tabset .tabset-fade}
+
+### All Data {.tabset .tabset-fade}
+
+#### Factor Variables
+
+```{r skim_factor_all}
+tez %>% ungroup() %>%  
+  skim() %>% yank("factor") %>% 
+  flextable() %>% colformat_double(digits = 2)
+```
+
+#### Numeric Variables
+
+```{r skim_numeric_all}
+tez %>% ungroup() %>% 
+  skim() %>% yank("numeric") %>% 
+  flextable() %>% colformat_double(digits = 2)
+```
+
+### By Groups {.tabset .tabset-fade}
+
+#### Factor Variables
+
+```{r skim_factor_grouped}
+tez %>% 
+  skim() %>% yank("factor") %>% 
+  flextable() %>% colformat_double(digits = 2)
+```
+
+#### Numeric Variables
+
+```{r skim_numeric_grouped}
+tez %>% 
+  skim() %>% yank("numeric") %>% 
+  flextable() %>% colformat_double(digits = 2)
+```
+
+
+## Distribution of participants in variables {.tabset .tabset-fade}
+
+### All
+
+```{r plot_bar_1half}
+DataExplorer::plot_bar(select(tez, 
+                              bau_student, group, sex,
+                              education, dominant_hand, place)) 
+```
+
+```{r plot_bar_2half}
+DataExplorer::plot_bar(dplyr::select(tez, 
+                                     income, barratt_code, sss_code,
+                                     okRelig_code, intuRelig_code)) 
+```
+
+### By Groups
+
+```{r plot_bar_by_group_1half}
+DataExplorer::plot_bar(select(tez,
+                              -barratt_code, -sss_code,
+                              -okRelig_code, -intuRelig_code),
+                       by = "group", by_position = "dodge") 
+```
+
+```{r plot_bar_by_group_2half}
+DataExplorer::plot_bar(select(tez, -bau_student, -sex, -education,
+                               -dominant_hand, -place, - income),
+                       by = "group", by_position = "dodge") 
+```
+
+## Analysis of Numeric Variables
+
+```{r table_numeric}
+tez %>% dplyr::select(-id, -id_in_group) %>% ungroup() %>% 
+  diagnose_numeric() %>% 
+  flextable() %>% colformat_double(digits = 2) %>% 
+  footnote(i = 1, j = 8:9, inline = T, part = "header",
+           value = as_paragraph(c("Number of values that are 0",
+                                  "Number of negative values")))
+```
+
+$~$
+
+## Analysis for Outliers
+
+```{r table_outliers}
+tez %>% ungroup() %>% dplyr::select(-id, -id_in_group) %>%
+  diagnose_outlier() %>% 
+  flextable() %>% colformat_double(digits = 2) %>% 
+  footnote(i = 1, j = c(2, 5:6), inline = T, part = "header",
+           value = as_paragraph(c("Outlier count",
+                                  "Mean when outliers included", 
+                                  "Mean when outliers excluded")))
+```
+
+$~$
+
+## Outcome Variable Statistics by Groups {.tabset .tabset-fade}
+
+### IGT
+
+```{r igt_stat.desc}
+by(tez$IGT, tez$group, 
+   stat.desc, basic = F, norm = T)
+```
+
+$~$
+
+### BART
+
+```{r bart_stat.desc}
+by(tez$BART, tez$group, 
+   stat.desc, basic = F, norm = T)
+```
+
+__Interesting Points:__ 
+
+* Punishing primes group is a little over 1 in its kurtosis statistic (kurt.2SE = 1.08). _What to do about it?_
+
+$~$
+
+## Plots {.tabset .tabset-fade}
+
+### IGT {.tabset .tabset-fade}
+
+#### Line Plot
+
+```{r}
+tez %>% tidyr::pivot_longer(cols = contains("IGT"),
+                            names_to = "igt_blocks",
+                            values_to = "score") %>% 
+  ggplot(aes(igt_blocks, score, group = group, color = group)) + 
+  stat_summary(fun.y = mean, geom = "point") + 
+  stat_summary(fun.y = mean, geom = "line") + 
+  stat_summary(aes(label = round(..y.., 2)),
+                   fun.y = mean, geom = "text", vjust = -.5) +
+  geom_hline(aes(yintercept = 0), color = "red", liIGType = "dotted") + 
+  theme_minimal() +
+  labs(x = NULL,
+       y = "Advantageous - Disadvantageous",
+       caption = "Numbers represent means")
+```
+
+$~$
+
+#### Bar Plot 
+
+```{r}
+tez %>% pivot_longer(col = contains("IGT"),
+                     names_to = "igt_blocks",
+                     values_to = "score") %>% 
+  ggplot(aes(igt_blocks, score, fill = group)) +
+  stat_summary(fun = mean, geom = "bar", position = "dodge") +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge") + 
+  theme_minimal() +
+  labs(x = NULL,
+       y = "Advantageous - Disadvantageous",
+       caption = "Errorbars represent standard error of the mean")
+```
+
+### BART {.tabset .tabset-fade}
+
+#### Line Plot
+
+```{r}
+tez %>% dplyr::select(-BART_awareness_1) %>% 
+  pivot_longer(cols = contains("BART"),
+               names_to = "bart_blocks",
+               values_to = "score") %>% 
+  ggplot(aes(bart_blocks, score, group = group, color = group)) +
+  stat_summary(fun.y = mean, geom = "point") + 
+  stat_summary(fun.y = mean, geom = "line") + 
+  stat_summary(aes(label = round(..y.., 2)),
+               fun.y = mean, geom = "text", vjust = -.5) + 
+  theme_minimal() + 
+  labs(x = NULL,
+       y = "Mean pumps for unexploded trials")
+```
+
+$~$
+
+#### Bar Plot
+
+```{r}
+tez %>% dplyr::select(-BART_awareness_1) %>% 
+  pivot_longer(cols = contains("BART"), 
+               names_to = "bart_blocks",
+               values_to = "score") %>% 
+  ggplot(aes(bart_blocks, score, fill = group)) + 
+  stat_summary(fun = mean, geom = "bar", position = "dodge") + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = "dodge") + 
+  theme_minimal() + 
+  labs(x = NULL,
+       y = "Mean pumps for unexploded trials",
+       caption = "Errorbars represent standard error of the mean")
+```
+
+$~$
+
+## Correlations {.tabset .tabset-fade}
+
+### Correlation Plot 
+
+```{r}
+tez %>% select(-id, -id_in_group) %>% 
+  GGally::ggcorr(label = T, label_size = 3) 
+```
+
+$~$
+
+### Correlation Matrix
+
+```{r message=FALSE, warning=FALSE, }
+
+tez %>% select(okRelig_total, intuRelig_total,
+               barratt_total, sss_total,
+               BART, IGT) %>% 
+  GGally::ggpairs(mapping = ggplot2::aes(color = tez$group),
+                  lower = list(continuous = wrap("smooth", size = .9,
+                                                 position = "jitter", 
+                                                 se = F, 
+                                                 method = "lm")),
+                  diag = list(continuous = wrap("densityDiag", 
+                                                alpha = .3))) +
+  theme_minimal()
+  
+```
+
+$~$
+
+### Interactive Correlation Tables {.tabset .tabset-fade}
+
+You can sort the table in ascending or descending order by clicking on the column names.
+
+#### All
+
+```{r}
+tez %>% ungroup() %>% dplyr::select(-id, -id_in_group) %>% 
+correlate() %>% 
+  reactable::reactable(compact = T, highlight = T,
+    defaultColDef = colDef(format =
+                             colFormat(separators = T, digits = 3)
+                          )
+                      )
+```
+
+$~$
+
+#### By Groups
+
+```{r}
+tez %>% dplyr::select(-id, -id_in_group) %>% 
+correlate() %>% 
+  reactable::reactable(compact = T, highlight = T,
+    defaultColDef = colDef(format =
+                             colFormat(separators = T, digits = 3)
+                          )
+                      )
+```
+
+$~$
+
+# ANCOVA Model
+
+$~$
+
+## Assumptions 
+
+### 1. Indipendence of Covariates from the IV {.tabset .tabset-fade}
+
+> ANCOVA assumes that the covarite is not related to the independent variable. 
+
+We can check this assumption by creating an ANOVA model with the covariate as the DV and the religious priming groups as the IV in our study.
+
+#### Impulsiveness
+
+```{r}
+summary(aov(barratt_total ~ group, data = tez))
+
+report(aov(barratt_total ~ group, data = tez))
+```
+
+We can assume that the covariate of impulsiveness is not influenced by our manipulations, therefore independent of the IV.
+
+$~$
+
+#### Sensation-seeking
+
+```{r}
+summary(aov(sss_total ~ group, data = tez)) 
+
+report(aov(sss_total ~ group, data = tez))
+```
+
+We can assume that the covariate of sensation-seeking is not influenced by our manipulations, therefore independent of the IV.
+
+$~$
+
+### 2. Homogeniety of Regression Slopes {.tabset .tabset-fade}
+
+> ANCOVA assumes that the slopes of the regression lines, formed by the covariate and the outcome variable, should be the same for each group. 
+
+We can check this assumption by looking for non-significant interaction between the covariate and the IV groups.
+
+#### IGT
+
+```{r}
+car::Anova(aov(IGT ~ group:barratt_total:sss_total, data = tez))
+report(aov(IGT ~ group:barratt_total:sss_total, data = tez))
+```
+
+Since there were no significant interactions between the IV and the covarite, we can assume homogeneity of regression slopes.
+
+$~$
+
+#### BART
+
+```{r}
+car::Anova(aov(BART ~ group:barratt_total:sss_total, data = tez))
+report(aov(BART ~ group:barratt_total:sss_total, data = tez))
+```
+
+Since there were no significant interactions between the IV and the covarite, we can assume homogeneity of regression slopes.
+
+$~$
+
+### 3. Homogeneity of Variances (Heteroscasdicity) {.tabset .tabset-fade}
+
+> ANCOVA assumes that residual variances for the outcome variable are homogeneous for all groups. 
+
+We can check for this assumption applying Levene's test. 
+
+$~$
+
+#### IGT
+
+```{r message=FALSE, warning=FALSE}
+igt_anova <- aov(IGT ~ group, data =tez)
+
+car::leveneTest(IGT ~ group, data = tez, center = median)
+
+check_homogeneity(igt_anova, method = "levene")
+```
+
+
+Since the Levene's test suggests that residual variance distributions do not differ between groups (p > .05), we can assume homoscasdicity. 
+
+$~$
+
+#### BART
+
+```{r message=FALSE, warning=FALSE}
+bart_anova <- aov(BART ~ group, data = tez)
+
+car::leveneTest(BART ~ group, data = tez, center = median)
+
+check_homogeneity(bart_anova, method = "levene")
+```
+
+Since the Levene's test suggests that residual variance distributions do not differ between groups (p > .05), we can assume homoscasdicity. 
+
+$~$
+
+### 4. Normality of Residuals {.tabset .tabset-fade}
+
+> ANCOVA assumes that the outcome variable is normally distributed. 
+
+We can check this with Shapiro-Wilk test of normality and visualize distribution plots.
+
+$~$
+
+#### IGT
+
+Shapiro-Wilk normality tests of the IGT results for groups:
+
+```{r}
+by(tez$IGT, tez$group, shapiro.test)
+```
+
+$~$
+
+Shapiro-Wilk normality test for the IGT ANCOVA model:
+
+```{r message=FALSE, warning=FALSE}
+igt_full_ancova <- aov(IGT ~ barratt_total + sss_total + group, data = tez)
+
+plot(check_normality(igt_full_ancova))
+```
+
+$~$
+
+#### BART
+
+Shapiro-Wilk normality tests of the BART results for groups:
+
+```{r}
+by(tez$BART, tez$group, shapiro.test)
+```
+
+Shapiro-Wilk normality test for the BART ANCOVA model:
+
+```{r message=FALSE, warning=FALSE}
+bart_ancova_full <- aov(BART ~ BART + sss_total + group, data = tez)
+
+plot(check_normality(bart_ancova_full))
+```
+
+Since the Shapiro-Wilk test result was significant (p = 0.030), *we cannot assume normality* for the BART model. This non-normality seems to be influenced from the punishing prime group distributions particularly.
+
+$~$
+
+### 5. Linearity {.tabset .tabset-fade}
+
+> ANCOVA assumes linearity between the covariate and the outcome variable at each level of the grouping variable. 
+
+This can be checked by creating a grouped scatter plot of the covariate and the outcome variable.
+
+#### IGT {.tabset .tabset-fade}
+
+##### Impulsivity and IGT
+
+```{r}
+ggscatter(tez,
+          x = "barratt_total", y = "IGT",
+          color = "group", add = "reg.line") + 
+  stat_regline_equation(
+    aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~"), color = group)
+  )
+```
+
+##### Sensation-seeking and IGT
+
+```{r}
+ggscatter(tez,
+          x = "sss_total", y = "IGT",
+          color = "group", add = "reg.line") +
+  stat_regline_equation(
+    aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~"), color = group)
+  )
+```
+
+$~$
+
+#### BART {.tabset .tabset-fade}
+
+##### Impulsivity and BART
+
+```{r}
+ggscatter(tez, 
+          x = "barratt_total", y = "BART",
+          color = "group", add = "reg.line") +
+  stat_regline_equation(
+    aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~"), color = group)
+  )
+```
+
+##### Sensation-seeking and BART
+
+```{r}
+ggscatter(tez,
+          x = "sss_total", y = "BART",
+          color = "group", add = "reg.line") +
+  stat_regline_equation(
+    aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~"), color = group)
+  )
+```
+
+$~$
+
+### Outliers {.tabset .tabset-fade}
+
+> ANCOVA assumes no significant outliers in the groups.
+
+We can check for outliers using the IQR method.
+
+$~$
+
+#### IGT
+
+```{r}
+tez %>% dplyr::group_by(group) %>% dplyr::select(contains("IGT")) %>% diagnose_outlier() %>%  
+  flextable() %>% colformat_double(digits = 2)%>% 
+  footnote(i = 1:12, j = 1, inline = T,
+           value = as_paragraph(c("Punishing","Non-punishing","Control")))
+```
+
+```{r}
+# Shiny
+
+by(tez$IGT, tez$group, check_outliers, method = "iqr")
+
+tez %>% ggplot(aes(group, IGT)) + geom_boxplot() + theme_minimal() + labs(x = NULL)
+```
+
+#### BART
+
+```{r}
+tez %>% dplyr::group_by(group) %>% dplyr::select(contains("BART"), -BART_awareness_1) %>% diagnose_outlier() %>%  
+  flextable() %>% colformat_double(digits = 2) %>% 
+  footnote(i = 1:12, j = 1, inline = T,
+           value = as_paragraph(c("Punishing","Non-punishing","Control")))
+```
+
+```{r}
+by(tez$BART, tez$group, check_outliers, method = "iqr")
+
+tez %>% ggplot(aes(group, BART)) + geom_boxplot() + theme_minimal() + labs(x = NULL)
+```
+
+ANCOVA is quite sensitive to outliers. We need to deal with these values somehow.
+
+$~$
+
+### Model Assumption Visualizations {.tabset .tabset-fade}
+
+$~$
+
+These are the assumptions for the full ANCOVA (controlling for impulsivity and sensation-seeking) models.
+
+$~$
+
+#### IGT {.tabset .tabset-fade}
+
+##### Plot 1
+
+```{r}
+check_model(aov(IGT ~ barratt_total + sss_total + group, data = tez))
+```
+
+$~$
+
+##### Plot 2
+
+```{r}
+autoplot(igt_full_ancova, which = 1:6, nrow = 3, ncol = 2) + theme_minimal()
+```
+
+$~$
+
+##### Metrics
+
+```{r}
+igt_full_ancova %>% augment(data = tez) %>% 
+  dplyr::select(id, IGT, barratt_total, sss_total, 
+                .fitted:.std.resid) %>% 
+  reactable(compact = T, highlight = T, striped = T,
+            columns = list(id = colDef(format = colFormat(digits = 0)),
+                           IGT = colDef(format = colFormat(digits = 0)),
+                           barratt_total = colDef(format = colFormat(digits = 0)),
+                           sss_total = colDef(format = colFormat(digits = 0))), 
+            defaultColDef = colDef(
+              format = colFormat(separators = T, digits = 3)))
+```
+
+$~$
+
+#### BART {.tabset .tabset-fade}
+
+$~$
+
+These are the assumptions for the full ANCOVA (controlling for impulsivity and sensation-seeking) models.
+
+$~$
+
+##### Plot 1
+
+```{r}
+check_model(aov(BART ~ barratt_total + sss_total + group, data = tez))
+```
+
+$~$
+
+##### Plot 2
+
+```{r}
+autoplot(bart_ancova_full, which = 1:6, nrow = 3, ncol = 2)
+```
+
+$~$
+
+##### Metrics
+
+```{r}
+bart_full_ancova <- aov(BART ~ barratt_total + sss_total + group, data = tez)
+
+bart_full_ancova %>% augment(data = tez) %>%   
+  dplyr::select(id, BART, barratt_total, sss_total, 
+                .fitted:.std.resid) %>% 
+  reactable(compact = T, highlight = T, striped = T,
+            columns = list(id = colDef(format = colFormat(digits = 0)),
+                           IGT = colDef(format = colFormat(digits = 0)),
+                           barratt_total = colDef(format = colFormat(digits = 0)),
+                           sss_total = colDef(format = colFormat(digits = 0))), 
+            defaultColDef = colDef(
+              format = colFormat(separators = T, digits = 3)))
+```
+
+$~$
+
+## Building the Model {.tabset .tabset-fade}
+
+$~$
+
+### IGT Model
+
+$~$
+
+First of all, let's see if the groups differ in their IGT scores before including the covariates.
+
+```{r}
+igt_anova <- aov(formula = IGT ~ group, data = tez)
+
+summary(igt_anova)
+
+report(igt_anova)
+```
+
+$~$
+
+It seems there is no difference on IGT scores between our groups.
+
+We can try to include our covariates into the model and see if we can get groups to significantly differ after controlling for the covariates. 
+
+Since we had specific hypotheses beforehand, we can start by setting up orthogonal contrasts.
+
+We want to do comparisons in this way:
+
+1. Experimental Groups vs Control
+2. Punishing vs Non-punishing Groups
+
+```{r}
+control_vs_exp <- c(1, 1, -2)
+between_exp <- c(1, -1, 0)
+
+contrasts(tez$group) <- cbind(control_vs_exp, between_exp)
+```
+
+$~$
+
+#### Step-by-step
+
+We will build up to our full ANCOVA model, meaning we'll create 3 more models:
+
+1. Controlling for impulsivity
+2. Controlling for sensation-seeking
+3. Controlling for impulsivity + sensation-seeking
+
+$~$
+
+##### 1. Controlling for Impulsivity
+
+```{r}
+igt_impuls_ancova <- aov(IGT ~ barratt_total + group, data = tez)
+
+summary.lm(igt_impuls_ancova)
+```
+
+$~$
+
+##### 2. Controlling for Sensation-seeking
+
+```{r}
+igt_sensSeek_ancova <- aov(IGT ~ sss_total + group, data = tez)
+
+summary.lm(igt_sensSeek_ancova)
+```
+
+$~$
+
+##### 3. Controlling for Impulsivity + Sensation-seeking
+
+```{r}
+igt_full_ancova <- aov(IGT ~ barratt_total + sss_total + group, data = tez)
+
+Anova(igt_full_ancova, type = "III")
+
+summary.lm(igt_full_ancova)
+```
+
+It seems after controlling for impulsivity and sensation-seeking, our groups do not differ significantly.
+
+$~$
+
+##### Comparing Models
+
+```{r}
+compare_performance(igt_anova, igt_impuls_ancova, igt_sensSeek_ancova, igt_full_ancova) %>% 
+  flextable() %>% colformat_double(digits = 2)
+```
+
+```{r}
+plot(compare_performance(igt_anova, igt_impuls_ancova, igt_sensSeek_ancova, igt_full_ancova))
+```
+
+### BART Model
+
+$~$
+
+Again, let's see if the groups differ in their IGT scores before including the covariates.
+
+```{r}
+bart_anova <- aov(BART ~ group, data = tez)
+
+summary.lm(bart_anova)
+
+report(bart_anova)
+```
+
+$~$
+
+#### Step-by-step
+
+We will build up to our full ANCOVA model, meaning we'll create 3 more models:
+
+1. Controlling for impulsivity
+2. Controlling for sensation-seeking
+3. Controlling for impulsivity + sensation-seeking
+
+$~$
+
+##### 1. Controlling for Impulsivity
+
+```{r}
+bart_impuls_ancova <- aov(BART ~ barratt_total + group, data = tez)
+
+summary.lm(bart_impuls_ancova)
+```
+
+$~$
+
+##### 2. Controlling for Sensation-seeking
+
+```{r}
+bart_sensSeek_ancova <- aov(BART ~ sss_total + group, data = tez) 
+
+summary.lm(bart_sensSeek_ancova) 
+```
+
+##### 3. Controlling for Impulsivity + Sensation-seeking
+
+```{r}
+bart_full_ancova <- aov(BART ~ barratt_total + sss_total + group, data = tez)
+
+summary.lm(bart_full_ancova)
+```
+
+It seems none of our models are statistically significant.
+
+$~$
+
+##### Comparing Models
+
+```{r}
+compare_performance(bart_anova, bart_impuls_ancova, bart_sensSeek_ancova, bart_full_ancova) %>% flextable() %>% colformat_double(digits = 2)
+```
+
+```{r}
+plot(compare_performance(bart_anova, bart_impuls_ancova, bart_sensSeek_ancova, bart_full_ancova))
+```
+
+
+```{r}
+contrasts(tez$group) <- contr.SAS(3)
+
+summary.lm(aov(IGT ~ intuRelig_total + group, tez))
+
+summary.lm(aov(IGT ~ intuRelig_total, tez))
+
+summary.lm(aov(IGT ~ intuRelig_total + group, tez))
+
+summary(aov(god_exists_rating ~ group, tez))
+report(aov(god_exists_rating ~ group, tez))
+```
+
+
+
+
+
+
+
+
+
+
