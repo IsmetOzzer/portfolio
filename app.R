@@ -25,11 +25,7 @@
 # library(DataExplorer)
 
 # template
-source("header.R")
-source("sidebar.R")
-source("intro/intro_tab.R")
-source("dataexp/dataexp_tab.R")
-source("body/body.R")
+source("components/base.R")
 
 # App
 shiny::shinyApp(

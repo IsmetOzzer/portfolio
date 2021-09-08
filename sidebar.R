@@ -22,7 +22,7 @@ Isidebar <- argonDashSidebar(
     ),
     
     argonSidebarItem(
-      tabname = "assumptions",
+      tabName = "assumptions",
       icon = argonIcon(name = "ruler-pencil", color = "info"),
       "Assumptions"
     ),

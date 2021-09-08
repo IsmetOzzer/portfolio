@@ -1,0 +1,6 @@
+source("header.R")
+source("sidebar.R")
+source("intro/intro_tab.R")
+source("dataexp/dataexp_tab.R")
+source("assumptions/assumptions_tab.R")
+source("body/body.R")
