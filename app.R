@@ -88,13 +88,13 @@ shiny::shinyApp(
     })
     
     
-    #Outliers Table
-    output$outliersTable <- DT::renderDT({
-      tez %>% ungroup() %>% dplyr::select(-id) %>%
-        diagnose_outlier() %>% 
-        DT::datatable() %>% DT::formatRound(columns = 3:6,  
-                                            digits = 2)
-    })
+    # #Outliers Table
+    # output$outliersTable <- DT::renderDT({
+    #   tez %>% ungroup() %>% dplyr::select(-id) %>%
+    #     diagnose_outlier() %>% 
+    #     DT::datatable() %>% DT::formatRound(columns = 3:6,  
+    #                                         digits = 2)
+    # })
     
   }
   
