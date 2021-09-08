@@ -88,7 +88,7 @@ shiny::shinyApp(
     })
     
     
-    # #Outliers Table
+    #Outliers Table
     # output$outliersTable <- DT::renderDT({
     #   tez %>% ungroup() %>% dplyr::select(-id) %>%
     #     diagnose_outlier() %>% 
