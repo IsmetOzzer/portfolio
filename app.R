@@ -36,7 +36,7 @@ shiny::shinyApp(
   
   ui = argonDashPage(
     title = "Ismet Thesis",
-    author = "Ismet Ozer <myemail.com>",
+    author = "Ismet Ozer",
     description = "Interactive visualization of Ismet's Thesis Data",
     
     sidebar = Isidebar,

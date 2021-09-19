@@ -47,13 +47,13 @@ intro_tab <- argonTabItem(
         ),
         
         argonTab(
-          tabName = "Punishment",
+          tabName = "Divine Punishment",
           active = T,
           introPunishmentText
         ),
         
         argonTab(
-          tabName = "Reward",
+          tabName = "Divine Absolution",
           active = T,
           introRewardText
         )
